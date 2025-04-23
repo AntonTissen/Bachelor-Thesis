@@ -45,6 +45,74 @@ def detect_language(text):
     except LangDetectException:
         return None
 
+3. Section: Sentiment Analysis
+
+analyzer = SentimentIntensityAnalyzer()
+
+def analyze_sentiment(text):
+    if isinstance(text, str):  # Ensure text is a string
+        return analyzer.polarity_score(text)
+    else:
+        return {'neg': 0.0, 'neu': 0.0, 'pos': 0.0, 'compound': 0.0}  # Return neutral sentiment for non-string values
+
+df['sentiment'] = df['cleaned_content'].apply(analyze_sentiment)
+
+# ---  Create separate columns for sentiment components ---
+df[['neg', 'neu', 'pos', 'compound']] = df['sentiment'].apply(pd.Series)
+
+print("Sentiment analysis complete")
+
 df['language'] = df['cleaned_content'].apply(detect_language)
 df = df[df['language'] == 'en'].copy()  # Filter for English
 print(f"Filtered for English tweets, DataFrame now has {len(df)} rows")
+
+
+4. Section: Network Analysis
+
+# ---  Prepare data for network analysis ---
+edges = []
+for _, row in df.iterrows():
+    if isinstance(row['mentionedUsers'], list):
+        for user in row['mentionedUsers']:
+            edges.append((row['user']['username'], user['username']))
+
+G = nx.DiGraph()
+G.add_edges_from(edges)
+
+# ---  Calculate Network Metrics ---
+degree_centrality = nx.degree_centrality(G)
+betweenness_centrality = nx.betweenness_centrality(G)
+closenness_centrality = nx.closeness_centrality(G)
+
+# ---  Print Top Nodes ---
+def print_top_nodes(centrality, n=10, metric_name="Degree Centrality"):
+    top_nodes = sorted(centrality.items(), key=lambda x: x[1], reverse=True)[:n]
+    print(f"\nTop {n} Nodes by {metric_name}:")
+    for node, value in top_nodes:
+        print(f"{node}: {value:.4f}")  # Format to 4 decimal places
+
+print_top_nodes(degree_centrality, metric_name="Degree Centrality")
+print_top_nodes(betweenness_centrality, metric_name="Betweenness Centrality")
+print_top_nodes(closeness_centrality, metric_name="Closeness Centrality")
+
+5. Section: Statistical Analysis
+
+# ---  Correlation Analysis ---
+correlation, p_value = pearsonr(df['compound'], df['likeCount'])  # Or whatever interaction metric you're using
+print(f"\nPearson Correlation: {correlation:.4f}")
+print(f"P-value: {p_value:.4f}")
+
+6. Section:  Analysis of Specific Actors
+
+# ---  Analysis of Zelenskyy and Kremlin Mentions ---
+def analyze_actor_sentiment(df, actor_keywords, actor_name="Actor"):
+    actor_tweets = df[df['cleaned_content'].str.contains('|'.join(actor_keywords), case=False, na=False)]
+    avg_sentiment = actor_tweets['compound'].mean()
+    print(f"\nAverage Sentiment towards {actor_name}: {avg_sentiment:.4f}")
+    return actor_tweets  # Return the subset for further analysis if needed
+
+zelenskyy_keywords = ['Zelenskyy', 'Zelensky']
+kremlin_keywords = ['Kremlin', 'KremlinRussia_E']  # Add other variations if needed
+
+zelenskyy_tweets = analyze_actor_sentiment(df, zelenskyy_keywords, "Zelenskyy")
+kremlin_tweets = analyze_actor_sentiment(df, kremlin_keywords, "Kremlin")
