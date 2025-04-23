@@ -1,0 +1,50 @@
+1. Section: Setup and Data Loading
+
+import numpy as np
+import pandas as pd  # Add pandas import here
+import re
+import nltk
+from nltk.corpus import stopwords
+from nltk.tokenize import word_tokenize
+from langdetect import detect, LangDetectException  # Keep only necessary imports
+from vaderSentiment.vaderSentiment import SentimentIntensityAnalyzer
+import networkx as nx  # For network analysis
+from scipy.stats import pearsonr  # For correlation
+
+nltk.download('stopwords')
+nltk.download('punkt')
+
+# --- Data Loading ---
+df = pd.read_csv('Ukraine_war.csv', nrows=40000 )
+df
+
+2. Section: Text Cleaning and Preprocessing
+def clean_text(text):
+    if pd.isnull(text):  # Handle NaN values
+        return ''
+    text = re.sub(r'http\S+|www\S+|https\S+', '', text, flags=re.MULTILINE)  # Remove URLs
+    text = re.sub(r'@\w+', '', text)  # Remove mentions
+    text = re.sub(r'#\w+', '', text)  # Remove hashtags
+    text = re.sub(r'&[A-Za-z0-9]+;', '', text) # Remove HTML entities
+    text = re.sub(r'[^a-zA-Z\s]', '', text)  # Remove non-alphabetic characters
+    text = text.lower()
+    stop_words = set(stopwords.words('english'))
+    word_tokens = word_tokenize(text)
+    text = ' '.join(word for word in word_tokens if word not in stop_words)
+    return text
+
+df['cleaned_content'] = df['content'].apply(clean_text)
+df.dropna(subset=['cleaned_content'], inplace=True)  # Drop rows where cleaned_content is NaN
+df.reset_index(drop=True, inplace=True) # Reset index after dropping rows
+print(f"Cleaned text, DataFrame now has {len(df)} rows")
+
+
+def detect_language(text):
+    try:
+        return detect(text)
+    except LangDetectException:
+        return None
+
+df['language'] = df['cleaned_content'].apply(detect_language)
+df = df[df['language'] == 'en'].copy()  # Filter for English
+print(f"Filtered for English tweets, DataFrame now has {len(df)} rows")
